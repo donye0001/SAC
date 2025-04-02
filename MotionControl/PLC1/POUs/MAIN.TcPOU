@@ -3,7 +3,7 @@
   <POU Name="MAIN" Id="{33279380-c474-4e05-96de-0d78b49ed396}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MAIN  
 // vision 4.4 *+: TCP, 斜直線移動
-
+// 幹
 VAR
 	SixAxis : Controller;
 	readA : REAL;
