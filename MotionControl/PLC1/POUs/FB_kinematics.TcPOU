@@ -1,0 +1,574 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_kinematics" Id="{f65fbc3f-15b8-419b-ae02-2c4655ed4260}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK PUBLIC FB_kinematics
+
+VAR CONSTANT
+   	// 六個軸的大小
+	arm_length: ARRAY[1..3, 1..6] OF LREAL := [  0, 105,   0, 146, 174,  176.5, // 長
+											     0,   0,   0,   0,   0,     0,  // 寬
+             								   289, 200, 280,  68,   0,     0]; // 高
+END_VAR
+
+VAR
+	TestP : ARRAY[1..3] OF LREAL := [649.79, -151.27, 207.90];
+	TestR : ARRAY[1..3] OF LREAL := [-116.32, 89.06, 167.42];
+	
+	TestPOS : ARRAY[1..6] OF LREAL := [649.79, -151.27, 207.90, -116.32, 89.06, 167.42];
+	TestJOINT : ARRAY[1..6] OF LREAL := [0, 0, 0, 0, 0, 0];
+
+	angles : ARRAY[1..6] OF LREAL;
+	pos : ARRAY[1..6] OF LREAL; 
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[F_inverse_kinematics(pos := TestPOS, theta => angles);
+F_foward_kinematics(joints := TestJOINT, pos => pos);]]></ST>
+    </Implementation>
+    <Method Name="DEG_TO_RAD" Id="{07557b91-d7ca-4899-a432-82d5aaddf107}">
+      <Declaration><![CDATA[METHOD DEG_TO_RAD : LREAL
+
+VAR_INPUT
+	degrees : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[DEG_TO_RAD := degrees * PI / 180.0;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="F_foward_kinematics" Id="{4fa00f9f-03d6-4c9e-92df-f66ac5ccef5e}">
+      <Declaration><![CDATA[METHOD F_foward_kinematics : BOOL
+
+VAR_INPUT
+	joints : ARRAY[1..6] OF LREAL;
+END_VAR
+
+VAR
+	joints_in_rad : ARRAY[1..6] OF LREAL;
+	
+	i : SINT;
+	
+	TF01 : ARRAY[1..4, 1..4] OF LREAL;
+	TF12 : ARRAY[1..4, 1..4] OF LREAL;
+	TF23 : ARRAY[1..4, 1..4] OF LREAL;
+	TF34 : ARRAY[1..4, 1..4] OF LREAL;
+	TF45 : ARRAY[1..4, 1..4] OF LREAL;
+	TF56 : ARRAY[1..4, 1..4] OF LREAL;
+	TF06 : ARRAY[1..4, 1..4] OF LREAL;
+	
+	TF02 : ARRAY[1..4, 1..4] OF LREAL;
+	TF03 : ARRAY[1..4, 1..4] OF LREAL;
+	TF04 : ARRAY[1..4, 1..4] OF LREAL;
+	TF05 : ARRAY[1..4, 1..4] OF LREAL;
+	
+	x : LREAL;
+	y : LREAL;
+
+	//Euler angle 公式 ZYX
+	Rx : LREAL;
+	Ry : LREAL;
+	Rz : LREAL;
+	
+	
+END_VAR
+
+VAR_OUTPUT
+	//output position 
+	pos : ARRAY[1..6] OF LREAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 6 DO
+	joints_in_rad[i] := DEG_TO_RAD(joints[i]);
+	//換成弧度
+	
+END_FOR
+
+//TF01
+TF01[1, 1] := COS(joints_in_rad[1]); TF01[1, 2] := -SIN(joints_in_rad[1]); TF01[1, 3] := 0;                     TF01[1, 4] := 0;
+TF01[2, 1] := SIN(joints_in_rad[1]); TF01[2, 2] := COS(joints_in_rad[1]);  TF01[2, 3] := 0;                     TF01[2, 4] := 0;
+TF01[3, 1] := 0;                     TF01[3, 2] := 0;                      TF01[3, 3] := 1;                     TF01[3, 4] := arm_length[3, 1] ;
+TF01[4, 1] := 0;                     TF01[4, 2] := 0;                      TF01[4, 3] := 0;                     TF01[4, 4] := 1;
+
+//TF12
+TF12[1, 1] := COS(joints_in_rad[1]); TF12[1, 2] := 0;                      TF12[1, 3] := SIN(joints_in_rad[1]); TF12[1, 4] := arm_length[1, 2];
+TF12[2, 1] := 0;                     TF12[2, 2] := 1;                      TF12[2, 3] := 0;                     TF12[2, 4] := 0;
+TF12[3, 1] := -SIN(joints_in_rad[1]);TF12[3, 2] := 0;                      TF12[3, 3] := COS(joints_in_rad[1]); TF12[3, 4] := arm_length[3, 2];
+TF12[4, 1] := 0;                     TF12[4, 2] := 0;                      TF12[4, 3] := 0;                     TF12[3, 4] := 1;
+
+//TF23
+TF23[1, 1] := COS(joints_in_rad[2]); TF23[1, 2] := 0;                      TF23[1, 3] := SIN(joints_in_rad[2]); TF23[1, 4] := 0;
+TF23[2, 1] := 0;                     TF23[2, 2] := 1;                      TF23[2, 3] := 0;                     TF23[2, 4] := 0;
+TF23[3, 1] := -SIN(joints_in_rad[2]);TF23[3, 2] := 0;                      TF23[3, 3] := COS(joints_in_rad[2]); TF23[3, 4] := arm_length[3, 3];
+TF23[4, 1] := 0;                     TF23[4, 2] := 0;                      TF23[4, 3] := 0;                     TF23[4, 4] := 1;
+
+//TF34
+TF34[1, 1] := 1;                     TF34[1, 2] := 0;                      TF34[1, 3] := 0;                     TF34[1, 4] := arm_length[1, 4];
+TF34[2, 1] := 0;                     TF34[2, 2] := COS(joints_in_rad[3]);  TF34[2, 3] := -SIN(joints_in_rad[3]);TF34[2, 4] := 0;
+TF34[3, 1] := 0;                     TF34[3, 2] := SIN(joints_in_rad[3]);  TF34[3, 3] := COS(joints_in_rad[3]); TF34[3, 4] := arm_length[3, 4];
+TF34[4, 1] := 0;                     TF34[4, 2] := 0;                      TF34[4, 3] := 0;                     TF34[4, 4] := 1;
+
+//TF45
+TF45[1, 1] := COS(joints_in_rad[4]); TF45[1, 2] := 0;                      TF45[1, 3] := SIN(joints_in_rad[4]); TF45[1, 4] := arm_length[1, 5];
+TF45[2, 1] := 0;                     TF45[2, 2] := 1;                      TF45[2, 3] := 0;                     TF45[2, 4] := 0;
+TF45[3, 1] := -SIN(joints_in_rad[4]);TF45[3, 2] := 0;                      TF45[3, 3] := COS(joints_in_rad[4]); TF45[3, 4] := 0;
+TF45[4, 1] := 0;                     TF45[4, 2] := 0;                      TF45[4, 3] := 0;                     TF45[4, 4] := 1;
+
+//TF56
+TF56[1, 1] := 1;                     TF56[1, 2] := 0;                      TF56[1, 3] := 0;                     TF56[1, 4] := arm_length[1, 6];
+TF56[2, 1] := 0;                     TF56[2, 2] := COS(joints_in_rad[5]);  TF56[2, 3] := -SIN(joints_in_rad[5]);TF56[2, 4] := 0;
+TF56[3, 1] := 0;                     TF56[3, 2] := SIN(joints_in_rad[5]);  TF56[3, 3] := COS(joints_in_rad[5]); TF56[3, 4] := 0;
+TF56[4, 1] := 0;                     TF56[4, 2] := 0;                      TF56[4, 3] := 0;                     TF56[4, 4] := 1;
+
+//TF06 := TF01 * TF12 * TF23 * TF34 * TF45 * TF56
+TF02 := F_multi_4x4(TF01, TF12);
+TF03 := F_multi_4x4(TF02, TF23);
+TF04 := F_multi_4x4(TF03, TF34);
+TF05 := F_multi_4x4(TF04, TF45);
+TF06 := F_multi_4x4(TF05, TF56);
+
+
+IF ABS(TF06[3, 1]) <> 1 THEN 
+	//Rx (R)
+	y := TF06[3, 2];
+	x := TF06[3, 3];
+	IF x > 0 THEN
+		Rx := ATAN(y/x);
+	ELSIF y >= 0 AND x < 0 THEN
+		Rx := ATAN(y/x) + PI;
+	ELSIF y < 0 AND x < 0 THEN
+		Rx := ATAN(y/x) - PI;
+	ELSIF y > 0 AND x = 0 THEN
+		Rx := PI/2;
+	ELSIF y < 0 AND x = 0 THEN
+		Rx := -PI/2;
+	END_IF
+	
+	//Rz (Y)
+	y := TF06[2, 1];
+	x := TF06[1, 1];
+	IF x > 0 THEN
+		Rz := ATAN(y/x);
+	ELSIF y >= 0 AND x < 0 THEN
+		Rz := ATAN(y/x) + PI;
+	ELSIF y < 0 AND x < 0 THEN
+		Rz := ATAN(y/x) - PI;
+	ELSIF y > 0 AND x = 0 THEN
+		Rz := PI/2;
+	ELSIF y < 0 AND x = 0 THEN
+		Rz := -PI/2;
+	END_IF
+	
+	//Ry (P)
+	IF COS(Rz) = 0 THEN
+		y := -TF06[3, 1];
+		x := TF06[2, 1] / SIN(Rz);
+		IF x > 0 THEN
+			Ry := ATAN(y/x);
+		ELSIF y >= 0 AND x < 0 THEN
+			Ry := ATAN(y/x) + PI;
+		ELSIF y < 0 AND x < 0 THEN
+			Ry := ATAN(y/x) - PI;
+		ELSIF y > 0 AND x = 0 THEN
+			Ry := PI/2;
+		ELSIF y < 0 AND x = 0 THEN
+			Ry := -PI/2;
+		END_IF
+	ELSE
+		y := -TF06[3, 1];
+		x := TF06[1, 1] / COS(Rz);
+		IF x > 0 THEN
+			Ry := ATAN(y/x);
+		ELSIF y >= 0 AND x < 0 THEN
+			Ry := ATAN(y/x) + PI;
+		ELSIF y < 0 AND x < 0 THEN
+			Ry := ATAN(y/x) - PI;
+		ELSIF y > 0 AND x = 0 THEN
+			Ry := PI/2;
+		ELSIF y < 0 AND x = 0 THEN
+			Ry := -PI/2;
+		END_IF
+	END_IF
+ELSE
+	Rx := 0;
+	
+	//Ry
+	y := -TF06[3, 1];
+	x := 0;
+	IF x > 0 THEN
+		Ry := ATAN(y/x);
+	ELSIF y >= 0 AND x < 0 THEN
+		Ry := ATAN(y/x) + PI;
+	ELSIF y < 0 AND x < 0 THEN
+		Ry := ATAN(y/x) - PI;
+	ELSIF y > 0 AND x = 0 THEN
+		Ry := PI/2;
+	ELSIF y < 0 AND x = 0 THEN
+		Ry := -PI/2;
+	END_IF
+	
+	//Rz
+	y := -TF06[1, 2];
+	x := TF06[2, 2];
+	IF x > 0 THEN
+		Rz := ATAN(y/x);
+	ELSIF y >= 0 AND x < 0 THEN
+		Rz := ATAN(y/x) + PI;
+	ELSIF y < 0 AND x < 0 THEN
+		Rz := ATAN(y/x) - PI;
+	ELSIF y > 0 AND x = 0 THEN
+		Rz := PI/2;
+	ELSIF y < 0 AND x = 0 THEN
+		Rz := -PI/2;
+	END_IF
+END_IF
+	
+pos[1] := TF06[1, 4];
+pos[2] := TF06[2, 4];
+pos[3] := TF06[3, 4];
+pos[4] := RAD_TO_DEG(RX);
+pos[5] := RAD_TO_DEG(Ry);
+pos[6] := RAD_TO_DEG(Rz);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="F_inverse_kinematics" Id="{22c0b816-cc89-4fc7-9be0-c780d4d9b851}">
+      <Declaration><![CDATA[METHOD F_inverse_kinematics : BOOL
+VAR_INPUT
+	pos : ARRAY[1..6] OF LREAL;  // pos = [x, y, z, r, p, y]
+	
+END_VAR
+VAR
+	angle : ARRAY[1..6] OF LREAL;
+	
+	i : SINT;
+	j : SINT;
+
+    cR : LREAL;
+	cP : LREAL;
+	cY : LREAL;
+	sR : LREAL;
+	sP : LREAL;
+	sY : LREAL;
+	
+	lenth25 : LREAL;
+	lenth35 : LREAL;
+	lenth25onXY : LREAL;
+	lenth25onZ : LREAL;
+	thi : LREAL;
+	cosp3 : LREAL;
+	sinp3 : LREAL;
+	
+	joint_pos : ARRAY[1..6, 1..3] OF LREAL;
+	
+	//旋轉矩陣
+	R06 : ARRAY[1..3, 1..3] OF LREAL;
+	R36 : ARRAY[1..3, 1..3] OF LREAL;
+	R03_inv: ARRAY[1..3, 1..3] OF LREAL;
+
+	//xyx Euler angle
+	
+	th4 : LREAL;
+	th5 : LREAL;
+	th6 : LREAL;
+
+	x: LREAL;
+	y: LREAL;
+	
+	c1: LREAL;
+	
+	c23: LREAL;
+	s1: LREAL;
+	s2: LREAL;
+	s23: LREAL;
+	
+	c2: LREAL;
+END_VAR
+
+VAR_OUTPUT
+	theta : ARRAY[1..6] OF LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 6 DO
+	FOR j := 1 TO 6 DO
+		joint_pos[i, j] := 0;
+		//一開始的陣列
+	END_FOR
+END_FOR
+
+cR := COS(DEG_TO_RAD(pos[4]));
+cP := COS(DEG_TO_RAD(pos[5]));
+cY := COS(DEG_TO_RAD(pos[6]));
+sR := SIN(DEG_TO_RAD(pos[4]));
+sP := SIN(DEG_TO_RAD(pos[5]));
+sY := SIN(DEG_TO_RAD(pos[6]));
+
+//R06 旋轉矩陣
+R06[1, 1] := cY * cP;
+R06[1, 2] := -sY * cR + cY * sP * sR;
+R06[1, 3] := sY * sR + cY * sP * cR;
+R06[2, 1] := sY * cP;
+R06[2, 2] := cY * cR + sY * sP * sR;
+R06[2, 3] := -cY * sR + sY * sP * cR;
+R06[3, 1] := -sP;
+R06[3, 2] := cP * sR;
+R06[3, 3] := cP * cR;
+
+//Joint6 xyz
+FOR i:= 1 TO 3 DO
+	joint_pos[6, i] := pos[i];
+END_FOR
+
+//Joint5 xyz
+joint_pos[5, 1] := pos[1] - arm_length[1, 6] * cP * cY;
+joint_pos[5, 2] := pos[2] - arm_length[1, 6] * cP * sY;
+joint_pos[5, 3] := pos[3] + arm_length[1, 6] * sP;
+
+//joint1 弧度
+x := joint_pos[5, 1];
+y := joint_pos[5, 2];
+
+IF x > 0 THEN
+	angle[1] := ATAN(y/x);
+ELSIF y >= 0 AND x < 0 THEN
+	angle[1] := ATAN(y/x) + PI;
+ELSIF y < 0 AND x < 0 THEN
+	angle[1] := ATAN(y/x) - PI;
+ELSIF y > 0 AND x = 0 THEN
+	angle[1] := PI/2;
+ELSIF y < 0 AND x = 0 THEN
+	angle[1] := -PI/2;
+END_IF
+
+//Joint2 xyz
+joint_pos[2, 1] := arm_length[1, 2] * COS(angle[1]);
+joint_pos[2, 2] := arm_length[1, 2] * SIN(angle[1]);
+joint_pos[2, 3] := arm_length[3, 1] + arm_length[2, 2]; 
+
+//算joint3角度前需要的各長度
+lenth35 := SQRT(EXPT(arm_length[3, 4], 2) + EXPT(arm_length[1, 4] + arm_length[1, 5], 2));
+lenth25onXY := SQRT(EXPT(joint_pos[5, 1], 2) + EXPT(joint_pos[5, 2], 2)) - arm_length[1, 2];
+lenth25onZ := joint_pos[5, 3] - arm_length[3, 1] - arm_length[3, 2]; 
+lenth25 := SQRT(EXPT(lenth25onXY, 2) + EXPT(lenth25onZ, 2));
+
+//joint3 角度
+cosp3 := (EXPT(lenth25, 2) - EXPT(lenth35, 2) - EXPT(arm_length[3, 3], 2)) / (2 * arm_length[3, 3] * lenth35);
+
+IF EXPT(cosp3, 2) > 1 THEN
+	F_inverse_kinematics := FALSE;
+	RETURN;
+ELSE
+	sinp3 := SQRT(1 - EXPT(cosp3, 2));
+END_IF
+
+x := arm_length[3, 4];
+y := arm_length[1, 4] + arm_length[1, 5];
+
+IF x > 0 THEN
+	thi := ATAN(y/x);
+ELSIF y >= 0 AND x < 0 THEN
+	thi := ATAN(y/x) + PI;
+ELSIF y < 0 AND x < 0 THEN
+	thi := ATAN(y/x) - PI;
+ELSIF y > 0 AND x = 0 THEN
+	thi := PI/2;
+ELSIF y < 0 AND x = 0 THEN
+	thi := -PI/2;
+END_IF
+
+
+//joint3 弧度
+x := cosp3;
+y := sinp3;
+
+IF x > 0 THEN
+	angle[3] := ATAN(y/x) - thi;
+ELSIF y >= 0 AND x < 0 THEN
+	angle[3] := ATAN(y/x) + PI - thi;
+ELSIF y < 0 AND x < 0 THEN
+	angle[3] := ATAN(y/x) - PI - thi;
+ELSIF y > 0 AND x = 0 THEN
+	angle[3] := PI/2 - thi;
+ELSIF y < 0 AND x = 0 THEN
+	angle[3] := -PI/2 - thi;
+END_IF
+
+//joint2 弧度
+x := lenth25onXY;
+y := lenth25onZ;
+
+IF x > 0 THEN
+	angle[2] := PI/2 - ATAN(y/x) - ASIN(lenth35 * sinp3 / lenth25);
+ELSIF y >= 0 AND x < 0 THEN
+	angle[2] := PI/2 - (ATAN(y/x) + PI) - ASIN(lenth35 * sinp3 / lenth25);
+ELSIF y < 0 AND x < 0 THEN
+	angle[2] := PI/2 - (ATAN(y/x) - PI) - ASIN(lenth35 * sinp3 / lenth25);
+ELSIF y > 0 AND x = 0 THEN
+	angle[2] := PI/2 - (PI/2) - ASIN(lenth35 * sinp3 / lenth25);
+ELSIF y < 0 AND x = 0 THEN
+	angle[2] := PI/2 - (-PI/2) - ASIN(lenth35 * sinp3 / lenth25);
+END_IF
+
+s1 := SIN(angle[1]);
+c1 := COS(angle[1]);        
+c2 := COS(angle[2]);
+c23 := COS(angle[2] + angle[3]);
+s2 := SIN(angle[2]);
+s23 := SIN(angle[2] + angle[3]);
+
+R03_inv[1,1] := c1*c23;
+R03_inv[1,2] := s1*c23;
+R03_inv[1,3] := -s23;
+R03_inv[2,1] := -s1;
+R03_inv[2,2] := c1;
+R03_inv[2,3] := 0;
+R03_inv[3,1] := c1*s23;
+R03_inv[3,2] := s1*s23;
+R03_inv[3,3] := c23;
+
+R36 := F_multi_3x3(R03_inv, R06);
+
+//theta4
+x := -R36[3, 1];
+y := R36[2, 1];
+
+IF x > 0 THEN
+	th4 := ATAN(y/x);
+ELSIF y >= 0 AND x < 0 THEN
+	th4 := ATAN(y/x) + PI;
+ELSIF y < 0 AND x < 0 THEN
+	th4 := ATAN(y/x) - PI;
+ELSIF y > 0 AND x = 0 THEN
+	th4 := PI/2;
+ELSIF y < 0 AND x = 0 THEN
+	th4 := -PI/2;
+END_IF
+
+//theta5
+th5 := ACOS(R36[1, 1]);
+
+//thta6
+x := R36[1, 3];
+y := R36[1, 2];
+
+IF x > 0 THEN
+	th6 := ATAN(y/x);
+ELSIF y >= 0 AND x < 0 THEN
+	th6 := ATAN(y/x) + PI;
+ELSIF y < 0 AND x < 0 THEN
+	th6 := ATAN(y/x) - PI;
+ELSIF y > 0 AND x = 0 THEN
+	th6 := PI/2;
+ELSIF y < 0 AND x = 0 THEN
+	th6 := -PI/2;
+END_IF
+
+angle[4] := th4;
+angle[5] := th5;
+angle[6] := th6;
+
+//用弧度帶
+FOR i := 1 TO 6 DO
+	theta[i] := RAD_TO_DEG(angle[i]);
+END_FOR
+
+//角度限制
+IF theta[1] >= -180 AND theta[2] >= -57 AND theta[3] >= -125 AND 
+   theta[4] >= -180 AND theta[5] >= -124 AND theta[6] >= -180 AND theta[1] <= 180 AND 
+   theta[2] <= 120 AND theta[3] <= 57 AND theta[4] <= 180 AND theta[5] <= 115 AND theta[6] <= 180 THEN
+	F_inverse_kinematics := TRUE;
+	RETURN;
+ELSE
+	F_inverse_kinematics := FALSE;
+	RETURN;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="F_multi_3x3" Id="{36a050dd-9e1b-48c6-abad-9528cc5085ae}">
+      <Declaration><![CDATA[METHOD F_multi_3x3 : ARRAY[1..3, 1..3] OF LREAL
+
+VAR_INPUT
+	left : ARRAY[1..3, 1..3] OF LREAL;
+	right : ARRAY[1..3, 1..3] OF LREAL;
+END_VAR
+
+VAR
+	row: USINT;
+	col: USINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR row := 1 TO 3 DO
+	FOR col := 1 TO 3 DO
+		F_multi_3x3[row,col] := left[row,1]*right[1,col]+ left[row,2]*right[2,col]+ left[row,3]*right[3,col];
+	END_FOR
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="F_multi_4x4" Id="{b48013d2-3a4d-4c22-9bb1-3b98482f2034}">
+      <Declaration><![CDATA[METHOD F_multi_4x4 : ARRAY[1..4, 1..4] OF LREAL
+
+VAR_IN_OUT
+	left : ARRAY[*, *] OF LREAL;
+	right : ARRAY[*, *] OF LREAL;
+END_VAR
+
+VAR
+	row: USINT;
+	col: USINT;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR row := 1 TO 4 DO
+	FOR col := 1 TO 4 DO
+		F_multi_4x4[row,col] := left[row,1]*right[1,col]+ left[row,2]*right[2,col]+ left[row,3]*right[3,col]+ left[row,4]*right[4,col];
+	END_FOR
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RAD_TO_DEG" Id="{22d33561-a489-4afd-977d-337d61d4f175}">
+      <Declaration><![CDATA[METHOD RAD_TO_DEG : LREAL
+
+VAR_INPUT
+	radians : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[RAD_TO_DEG := radians * 180.0 / PI;
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_kinematics">
+      <LineId Id="9" Count="0" />
+      <LineId Id="38" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.DEG_TO_RAD">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.F_foward_kinematics">
+      <LineId Id="44" Count="112" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="165" Count="27" />
+      <LineId Id="164" Count="0" />
+      <LineId Id="157" Count="6" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.F_inverse_kinematics">
+      <LineId Id="61" Count="191" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.F_multi_3x3">
+      <LineId Id="17" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.F_multi_4x4">
+      <LineId Id="16" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_kinematics.RAD_TO_DEG">
+      <LineId Id="10" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

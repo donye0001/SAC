@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.8" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{ec4da07f-650a-4be6-8545-55b782ca4e96}</ProjectGuid>
+    <AssemblyName>SixAxis_Measurement</AssemblyName>
+    <Name>SixAxis_Measurement</Name>
+    <RootNamespace>SixAxis_Measurement</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="YT Scope Project.tcscopex">
+      <SubType>Content</SubType>
+    </Content>
+  </ItemGroup>
+</Project>

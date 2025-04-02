@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="Deserialize" Id="{aeb3e5e7-d732-4a04-8c66-066efd0cadd7}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK Deserialize
+
+VAR_INPUT
+	Recvbuffer : ARRAY[0..1023] OF BYTE;
+END_VAR
+
+VAR_OUTPUT
+	a : BYTE;
+	b : DINT;
+	c : ARRAY[1..6] OF LREAL;
+END_VAR
+
+VAR
+	idx : DINT;
+	offset : DINT := 0;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[offset := 0;
+MEMCPY(ADR(a), ADR(Recvbuffer[offset]), SIZEOF(a));
+
+offset := offset + SIZEOF(a);
+MEMCPY(ADR(b), ADR(Recvbuffer[offset]), SIZEOF(b));
+
+offset := offset + SIZEOF(b);
+FOR idx := 1 TO 6 DO
+	MEMCPY(ADR(c[idx]), ADR(RecvBuffer[offset]), SIZEOF(c[idx]));
+    offset := offset + SIZEOF(c[idx]);
+END_FOR
+]]></ST>
+    </Implementation>
+    <LineIds Name="Deserialize">
+      <LineId Id="39" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="33" Count="2" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

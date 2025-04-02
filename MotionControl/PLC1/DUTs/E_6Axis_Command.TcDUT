@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="E_6Axis_Command" Id="{b2858ee8-6593-4a0e-82ef-cb6227435377}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_6Axis_Command :
+(
+	NO_COMMAND,
+	POWER_ON,
+	STOP,
+	HALT,
+	RESET,
+	HOMING,
+	// Command For Testing
+	M_PTP,
+	M_DIRE_X,
+	M_DIRE_Y,
+	M_DIRE_XY,
+	M_DIRE_Z,
+	M_LINEAR,
+	M_CURVE,
+	CONSTRUCT, //To build Jenga
+	LOOKING,   //To observe Jenga
+	TOUCHING,  //To detech Jenga status
+	TAKING     //To clamping Jenga
+) := NO_COMMAND;
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

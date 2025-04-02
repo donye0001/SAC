@@ -1,0 +1,345 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="MathFunc" Id="{0948e163-60a5-441c-8e57-745d9d01a6b2}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK MathFunc
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Factorial" Id="{6e134467-a6b1-430b-9b8c-6f4b66abd488}">
+      <Declaration><![CDATA[METHOD Factorial : LREAL
+VAR_INPUT
+    n : INT;
+END_VAR
+
+VAR
+	i : INT;
+    result: INT := 1;
+    
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO n DO
+    result := result * i;
+END_FOR
+
+Factorial := result;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FindForSixPoints" Id="{f6602cd8-15c6-4c12-bdf1-c87fd0b2d5c7}">
+      <Declaration><![CDATA[METHOD FindForSixPoints : BOOL
+
+VAR_INPUT
+	start_pos : ARRAY [1..6] OF LREAL;
+	final_pos : ARRAY [1..6] OF LREAL;
+END_VAR
+
+VAR_OUTPUT
+	six_pos : ARRAY [1..6, 1..6] OF LREAL;
+END_VAR
+
+VAR
+	i, j : DINT;
+	delta : ARRAY[1..6] OF LREAL;
+	section : ARRAY[1..5] OF LREAL;
+	weight : ARRAY[1..5] OF LREAL := [15, 21, 25.5, 25, 13.5];
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 6 DO
+	delta[i] := final_pos[i] - start_pos[i];
+	FOR j := 1 TO 5 DO
+		section[j] := delta[i] * weight[j] / 100;
+	END_FOR
+	six_pos[1, i] := start_pos[i];
+	FOR j := 2 TO 6 DO
+		six_pos[j, i] := six_pos[j - 1, i] + section[j - 1];
+	END_FOR		
+END_FOR
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FindFullTime" Id="{73e052dc-8b2b-46af-9c41-5d3805da2579}">
+      <Declaration><![CDATA[METHOD FindFullTime : BOOL
+
+VAR_INPUT
+	pos01 : ARRAY [1..3] OF LREAL;
+	pos02 : ARRAY [1..3] OF LREAL;
+	time_factor : LREAL;
+END_VAR
+
+VAR_OUTPUT
+	execute_fullTime : LREAL;
+END_VAR
+
+VAR
+	longest_distance : LREAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[longest_distance := SQRT(EXPT(pos02[1] - pos01[1], 2) + EXPT(pos02[2] - pos01[2], 2) + EXPT(pos02[3] - pos01[3], 2)); 
+execute_fullTime := EXPT(time_factor, -1) * longest_distance;
+
+//fix time proble
+execute_fullTime := LREAL_TO_DINT(execute_fullTime * EXPT(10, 7))/EXPT(10, 7);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GaussianElimination" Id="{d17d2efb-cab2-4248-ab5f-053d253678d2}">
+      <Declaration><![CDATA[METHOD GaussianElimination
+
+// n-order trajectory curve fitting
+VAR_IN_OUT
+	base_mat : ARRAY[*, *] OF LREAL;    // 6 of time-related function(Assume t0 at last row)
+	extend_mat : ARRAY[*, *] OF LREAL;  // target(XYZRPY) on corresponding time
+	temp_mat : ARRAY[*, *] OF LREAL;  	// 暫存矩陣(放單位矩陣跟反矩陣)
+END_VAR
+
+VAR_INPUT
+	order : INT;
+END_VAR
+
+VAR
+	n : INT;
+	row : INT;
+	column : INT;
+	gain : LREAL;
+	temp : LREAL;
+	base_mat_Copy : ARRAY [1..6] OF ARRAY [1..6] OF LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR row := 1 TO order DO
+	FOR column := 1 TO order DO
+		base_mat_Copy[row][column] := base_mat[row, column];
+	END_FOR
+END_FOR
+// Create a unit
+FOR row := 1 TO order DO
+	FOR column := 1 TO order DO
+		IF row = column THEN
+			temp_mat[row, column] := 1;
+		ELSE
+			temp_mat[row, column] := 0;
+		END_IF
+	END_FOR
+END_FOR
+
+// Lower triangle to zeros
+FOR n := 1 TO order DO
+	FOR row := n+1 TO order DO
+		gain := base_mat[row, n] / base_mat[n, n];
+		// Elimination
+		FOR column := 1 TO order DO
+			base_mat[row, column] := base_mat[row, column] - gain * base_mat[n, column];
+			// The matrix shape is exacly the same as base_mat
+			temp_mat[row, column] := temp_mat[row, column] - gain * temp_mat[n, column];
+		END_FOR
+	END_FOR
+END_FOR
+
+// Upper triangle to zeros
+FOR n := order TO 1 BY -1 DO
+	FOR row := n-1 TO 1 BY -1 DO
+		gain := base_mat[row, n] / base_mat[n, n];
+		// Elimination
+		FOR column := order TO 1 BY -1 DO
+			base_mat[row, column] := base_mat[row, column] - gain * base_mat[n, column];
+			// The matrix shape is exacly the same as base_mat
+			temp_mat[row, column] := temp_mat[row, column] - gain * temp_mat[n, column];
+		END_FOR
+	END_FOR
+END_FOR
+
+// Solve equation
+FOR row := 1 TO 6 DO
+	FOR column := 1 TO 6 DO
+		temp_mat[row, column] := temp_mat[row, column] / base_mat[row, row];
+		//Round(num1 := temp_mat[row, column], n := 2, num2 => temp_mat[row, column]);
+	END_FOR
+END_FOR
+MultiplyByMatrix(A := extend_mat, B := temp_mat, C := base_mat, n := 6);
+
+// Switch the name of matrix
+FOR row := 1 TO order DO
+	FOR column := 1 TO order DO
+		temp := temp_mat[row, column];
+		temp_mat[row, column] := base_mat[row, column];
+		base_mat[row, column] := temp;
+	END_FOR		
+END_FOR
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MultiplyByMatrix" Id="{d43ac27a-3014-4b06-9cee-ce786a9c0bbb}">
+      <Declaration><![CDATA[METHOD MultiplyByMatrix : BOOL
+
+VAR_IN_OUT
+	A : ARRAY[*, *] OF LREAL;
+	B : ARRAY[*, *] OF LREAL;
+	C : ARRAY[*, *] OF LREAL;
+END_VAR
+
+VAR_INPUT
+	n : INT;
+END_VAR
+
+VAR 
+	i: DINT;   // row
+	j : DINT;  // col
+	k : Dint;  // order
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO n DO
+	FOR j := 1 TO n DO
+		C[i, j] := 0;
+	END_FOR
+END_FOR
+
+FOR i := 1 TO n DO
+	FOR j := 1 TO n DO
+		FOR k := 1 TO n DO
+			C[i, j] := C[i, j] + A[i, k] * B[k, j];
+			//Round(num1 := C[i, j], n := 5, num2 => C[i, j]);
+		END_FOR
+	END_FOR
+END_FOR
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Round" Id="{f0f879cb-633b-4858-a892-d1ba22afd6ed}">
+      <Declaration><![CDATA[METHOD Round : BOOL
+VAR_INPUT
+	num1 : LREAL;
+	n : INT;
+END_VAR
+
+VAR_OUTPUT
+	num2 : lreal;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[num2 := LREAL_TO_DINT(num1 * EXPT(10, n) ) / EXPT(10, n);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="VectorMotionPOS" Id="{4be0ed86-e5fb-44ae-ad62-944db606b416}">
+      <Declaration><![CDATA[METHOD VectorMotionPOS : BOOL
+
+VAR_IN_OUT
+	POS : ARRAY [AXIS_MIN_IDX..AXIS_MAX_IDX] OF LREAL;
+END_VAR
+
+VAR_INPUT
+	Direcation : LREAL;
+	Path_Motion_Displace : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF Direcation = 1 THEN
+	POS[1] := POS[1] + Path_Motion_Displace;
+ELSIF Direcation = 2 THEN
+	POS[2] := POS[2] + Path_Motion_Displace;
+ELSIF Direcation = 3 THEN
+	POS[3] := POS[3] + Path_Motion_Displace;
+ELSIF Direcation = 4 THEN
+	POS[1] := POS[1] + Path_Motion_Displace * 0.5 * EXPT(2, 0.5);
+	POS[2] := POS[2] + Path_Motion_Displace * 0.5 * EXPT(2, 0.5);
+ELSIF Direcation = 5 THEN
+	POS[1] := POS[1] + Path_Motion_Displace * 0.5 * EXPT(2, 0.5);
+	POS[2] := POS[2] - Path_Motion_Displace * 0.5 * EXPT(2, 0.5);
+END_IF
+				]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="MathFunc">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.Factorial">
+      <LineId Id="14" Count="2" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.FindForSixPoints">
+      <LineId Id="13" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="46" Count="1" />
+      <LineId Id="59" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="50" Count="1" />
+      <LineId Id="42" Count="1" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.FindFullTime">
+      <LineId Id="11" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.GaussianElimination">
+      <LineId Id="175" Count="0" />
+      <LineId Id="174" Count="0" />
+      <LineId Id="176" Count="2" />
+      <LineId Id="89" Count="0" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="129" Count="1" />
+      <LineId Id="102" Count="2" />
+      <LineId Id="94" Count="0" />
+      <LineId Id="91" Count="0" />
+      <LineId Id="78" Count="7" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="87" Count="1" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="106" Count="8" />
+      <LineId Id="132" Count="0" />
+      <LineId Id="116" Count="1" />
+      <LineId Id="105" Count="0" />
+      <LineId Id="119" Count="4" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="146" Count="3" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="151" Count="0" />
+      <LineId Id="144" Count="1" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="128" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.MultiplyByMatrix">
+      <LineId Id="35" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="25" Count="1" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="58" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.Round">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="MathFunc.VectorMotionPOS">
+      <LineId Id="8" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="21" Count="1" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

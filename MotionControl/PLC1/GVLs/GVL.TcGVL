@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <GVL Name="GVL" Id="{840441c2-f0a5-403a-8195-b420038d81c1}">
+    <Declaration><![CDATA[VAR_GLOBAL
+	// Software
+	isHalt : BOOL;
+	InitalPOS : ARRAY [1..6] OF LREAL;
+
+	//Hardward
+	input_ana AT %I* : ARRAY[1..8] OF INT;
+	output_dig AT %Q* : ARRAY[1..16] OF BOOL;
+	input_dig AT %I* : ARRAY[1..16] OF BOOL;
+	
+	// Extend DATA feat. ADS
+	ExtData AT %I* : DINT;
+	
+	// Extend DATA feat. TCP
+	aaa : STRING;
+	
+END_VAR	
+	
+VAR_GLOBAL CONSTANT
+	// Axes Number
+	AXIS_MIN_IDX : USINT := 1;
+	AXIS_MAX_IDX : USINT := 6;
+
+	// ADS Setting
+	
+	// TCP Setting
+	PLCPRJ_BUFFER_SIZE						: UDINT := 1000;
+	PLCPRJ_SEND_CYCLE_TIME					: TIME := T#1S;
+	PLCPRJ_RECEIVE_POLLING_TIME		 		: TIME := T#100MS;
+	PLCPRJ_RECEIVE_TIMEOUT					: TIME := T#50S;
+	(* Some project specific error codes *)
+	PLCPRJ_ERROR_RECEIVE_TIMEOUT			: UDINT := 16#8101;(* Receive timeout error *)
+	PLCPRJ_ERROR_SENDFIFO_OVERFLOW			: UDINT := 16#8102;(* Send fifo overflow *)
+	PLCPRJ_ERROR_RECFIFO_OVERFLOW			: UDINT := 16#8103;(* Receive fifo overflow *)
+
+END_VAR	
+
+
+
+]]></Declaration>
+  </GVL>
+</TcPlcObject>

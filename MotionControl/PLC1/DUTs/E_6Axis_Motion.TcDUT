@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="E_6Axis_Motion" Id="{543902b2-f294-4ee1-b6d0-4be35cfe4217}">
+    <Declaration><![CDATA[TYPE E_6Axis_Motion :
+(
+	PTP,
+	LINEAR,
+	CURVE
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

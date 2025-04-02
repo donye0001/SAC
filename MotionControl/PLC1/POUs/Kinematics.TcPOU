@@ -1,0 +1,484 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="Kinematics" Id="{8003ae57-84f7-442e-8deb-28d35cc68953}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK PUBLIC Kinematics
+
+VAR CONSTANT
+	L1 : ARRAY[1..3] OF LREAL := [0, 0, 289];    
+	L2 : ARRAY[1..3] OF LREAL := [105, 0, 200];
+	L3 : ARRAY[1..3] OF LREAL := [0, 0, 280];
+	L4 : ARRAY[1.   .3] OF LREAL := [146, 0, 65];
+	L5 : ARRAY[1..3] OF LREAL := [174, 0, 0];
+	L6 : ARRAY[1..3] OF LREAL := [140, 0, 0];
+	
+	L35 : LREAL := SQRT(EXPT(L4[3], 2) + EXPT(L4[1] + L5[1], 2)); // L35 = The Length of J3 to J5
+	L25_MAX : LREAL := L3[3] + L35;
+	L25_MIN : LREAL := ABS(L3[3] - L35);
+	
+	
+END_VAR
+
+VAR
+	// if only use Forward or Inverse Kinematics
+	TestPOS : ARRAY[1..6] OF LREAL := [330, -150, 280, -42, 0, 45];
+	TestJOINT : ARRAY[1..6] OF LREAL := [0, 45, 45, 0, -90, 49.5];
+	
+	angles : ARRAY[1..6] OF LREAL; 
+	pos : ARRAY[1..6] OF LREAL; 
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Inverse(position := TestPOS, degrees => angles);
+Forward(angles := TestJOINT, position => pos);]]></ST>
+    </Implementation>
+    <Method Name="_atan" Id="{b15a92d1-130b-4276-8bfc-6827c0fc7096}">
+      <Declaration><![CDATA[METHOD PUBLIC _atan : LREAL
+VAR_INPUT
+	y : LREAL;
+	x : LREAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF x > 0 THEN
+	_atan := ATAN(y/x);
+ELSIF x = 0 THEN
+	IF y = 0 THEN
+		_atan := 0;
+	ELSIF y > 0 THEN
+		_atan := PI/2;
+	ELSIF y < 0 THEN
+		_atan := -PI/2;
+	END_IF
+ELSE
+	IF y >= 0 THEN
+		_atan := ATAN(y / x) + PI;
+	ELSE
+		_atan := ATAN(y / x) - PI;
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_d2r" Id="{b6c00e71-c5f9-4e40-8f93-33203fa20b33}">
+      <Declaration><![CDATA[METHOD PUBLIC _d2r : LREAL
+
+VAR_INPUT
+	degrees : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_d2r := degrees * PI / 180.0;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_matrixMultipl" Id="{f1a9d188-93ca-41c8-a4f7-26fde1491d77}">
+      <Declaration><![CDATA[METHOD _matrixMultipl : LREAL
+VAR_INPUT
+	A : ARRAY[1..3, 1..3] OF LREAL;
+	B : ARRAY[1..3, 1..3] OF LREAL;
+END_VAR
+
+VAR_OUTPUT
+	C : ARRAY[1..3, 1..3] OF LREAL;
+END_VAR
+
+VAR 
+	i: DINT;   // row
+	j : DINT;  // col
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i := 1 TO 3 DO
+	FOR j := 1 TO 3 DO
+		C[i, j] := A[i, 1] * B[1, j] + A[i, 2] * B[2, j] + A[i, 3] * B[3, j];
+	END_FOR
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_r2d" Id="{dba10114-fe2b-4986-9676-85aa32a19140}">
+      <Declaration><![CDATA[METHOD PUBLIC _r2d : LREAL
+
+VAR_INPUT
+	radians : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_r2d := radians * 180.0 / PI;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_rodLength" Id="{23b5c55a-e224-47fa-a728-4f70b18f61e1}">
+      <Declaration><![CDATA[METHOD PUBLIC _rodLength : LREAL
+VAR_INPUT
+	xyz : ARRAY[1..3] OF LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_rodLength := EXPT(xyz[1], 2) + EXPT(xyz[1], 2) + EXPT(xyz[1], 2);
+IF _rodLength <= 0 THEN
+	_rodLength := 100;
+END_IF
+_rodLength := SQRT(_rodLength);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="_sign" Id="{1758fe58-2f0b-4f6a-8b98-44bf9cdce3dc}">
+      <Declaration><![CDATA[METHOD PUBLIC _sign : LREAL
+VAR_INPUT
+	number : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF number > 0 THEN
+	_sign := 1;
+ELSIF number < 0 THEN
+	_sign := -1;
+ELSE
+	_sign := 0;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Forward" Id="{4e473fa0-fb6e-4f68-a351-e8889fbf983a}">
+      <Declaration><![CDATA[METHOD Forward : BOOL
+
+VAR_INPUT
+	angles : ARRAY[1..6] OF LREAL; // joints' angle in radians
+END_VAR
+
+VAR_OUTPUT
+	// position : [x, y, z, r, p, y]
+	position : ARRAY[1..6] OF LREAL; 
+END_VAR
+
+VAR
+	idx : int;
+
+	c1 : LREAL;
+	c2 : LREAL;
+	c4 : LREAL;
+	c5 : LREAL;
+	c6 : LREAL;
+	c23 : LREAL;
+	s1 : LREAL;
+	s2 : LREAL;
+	s4 : LREAL;
+	s5 : LREAL;
+	s6 : LREAL;
+	s23 : LREAL;
+	
+	// Position repeat value
+	L05_XY : LREAL;
+	
+	// Part of the fixed frame rotation matrix element(X->Y->Z) => R = Rz*Ry*Rx
+	r11 : LREAL;  // cos(Ry)*cos(Rz)
+	r12 : LREAL;  // sin(Rx)*sin(Ry)*cos(Rz) - cos(Rx)*sin(Rz)
+	r21 : LREAL;  // cos(Ry)*sin(Rz)
+	r22 : LREAL;  // cos(Rx)*cos(Rz) + sin(Rx)*sin(Ry)*sin(Rz)
+	r31 : LREAL;  // -sin(Ry)
+	r32 : LREAL;  // cos(Ry)*sin(Rx)
+	r33 : LREAL;  // cos(Ry)*cos(Rx)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// The lazy implementation is directly multipling 6 of 4x4 transform matrices based on
+// world frame, and the below program is simplified result which is derived from
+// TF06 := TF01 * TF12 * TF23 * TF34 * TF45 * TF56
+// where the position vector of each transform matrix is refrenced by link vector, and the rotation
+// matrices are rotate along specific world frame axis in the following order(TF01 to TF06)
+// R01(Z) -> R12(Y) -> R23(Y) -> R34(X) -> R45(Y) -> R56(X)
+FOR idx := 1 TO 6 DO
+	angles[idx] := _d2r(angles[idx]);
+END_FOR
+
+
+c1 := COS(angles[1]);
+c2 := COS(angles[2]);
+c4 := COS(angles[4]);
+c5 := COS(angles[5]);
+c6 := COS(angles[6]);
+c23 := COS(angles[2] + angles[3]);
+
+s1 := SIN(angles[1]);
+s2 := SIN(angles[2]);
+s4 := SIN(angles[4]);
+s5 := SIN(angles[5]);
+s6 := SIN(angles[6]);
+s23 := SIN(angles[2] + angles[3]);
+
+// Position
+L05_XY := L2[1] + L3[3]*s2 + L4[3]*s23 + (L4[1] + L5[1])*c23;
+position[1] := c1*L05_XY + L6[1]*(c5*c1*c23 - s5*(s1*s4 + c1*s23*c4));
+position[2] := s1*L05_XY + L6[1]*s1*(c23*c5 - s23*c4*s5) + L6[1]*c1*s4*s5;		
+position[3] := L1[3] + L2[3] + L3[3]*c2 + L4[3]*c23 - (L4[1] + L5[1])*s23 - L6[1]*(s23*c5 + c23*c4*s5);
+
+// Rotation matrix to fixed frame rotation angels
+r31 := -s23*c5 - c23*c4*s5;
+IF ABS(r31) <> 1.0 THEN  // Pitch angle(Ry) not equal to +-pi/2
+	r11 := c1*c23*c5 - s5*(s1*s4 + c1*s23*c4);
+	r21 := s1*c23*c5 + s5*(c1*s4 - s1*s23*c4);
+	r32 := c23*s4*c6 - s6*(s23*s5 - c23*c4*c5);
+	r33 := -c23*s4*s6 - c6*(s23*s5 - c23*c4*c5);
+	
+	position[4] := _atan(r32, r33);
+	position[6] := _atan(r21, r11);
+	IF COS(position[6]) = 0.0 THEN
+		position[5] := _atan(-r31, r21/SIN(position[6]));
+	ELSE
+		position[5] := _atan(-r31, r11/COS(position[6]));
+	END_IF
+ELSE  // Gimbal lock when picth angle(Ry) is equal to +-pi/2
+	r12 := -c6*(s1*c4 - c1*s23*s4) + s6*(c1*c23*s5 + c5*(s1*s4 + c1*s23*c4));
+	r22 :=  c6*(c1*c4 + s1*s23*s4) + s6*(s1*c23*s5 - c5*(c1*s4 - s1*s23*c4));
+
+	position[4] := 0;
+    position[5] := _atan(-r31, 0);
+    position[6] := _atan(-r12, r22);
+END_IF
+
+FOR idx := 4 TO 6 DO
+	position[idx] := _r2d(position[idx]);
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Inverse" Id="{6dff432a-b225-4994-b409-d36ea9865fea}">
+      <Declaration><![CDATA[METHOD PUBLIC Inverse : BOOL
+
+VAR_INPUT
+	// position : [x, y, z, r, p, y]
+	position : ARRAY[1..6] OF LREAL; 
+END_VAR
+
+VAR_OUTPUT
+	degrees : ARRAY[1..6] OF LREAL;  // joints' angle(degree)
+	radians : ARRAY[1..6] OF LREAL;  // joints' angle(radians)
+END_VAR
+	
+VAR
+	idx : INT;
+	
+	xyz : ARRAY[1..3] OF LREAL;  // position(mm)
+	rpy : ARRAY[1..3] OF LREAL;  // rotation(degree)
+	angles : ARRAY[1..6] OF LREAL;  // joints' angle(degree)
+	
+	R06 : ARRAY[1..3, 1..3] OF LREAL;
+	R03_T : ARRAY[1..3, 1..3] OF LREAL;
+	pos_J5 : ARRAY[1..3] OF LREAL; 
+	
+	c1 : LREAL;
+	s1 : LREAL;
+	pos_J2 : ARRAY[1..3] OF LREAL; 
+	
+	L25_square : LREAL := 0; 
+	phi : LREAL;
+	
+	c23 : LREAL;
+	s23 : LREAL;
+	
+	R36 : ARRAY[1..3, 1..3] OF LREAL;
+	
+	atan2: INT;
+	
+	
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR idx := 1 TO 3 DO
+	xyz[idx] := position[idx];
+	rpy[idx] := _d2r(position[idx + 3]);
+END_FOR
+
+pos_J5[1] := xyz[1] - L6[1] * COS(rpy[2]) * COS(rpy[3]);
+pos_J5[2] := xyz[2] - L6[1] * COS(rpy[2]) * SIN(rpy[3]);
+pos_J5[3] := xyz[3] - L6[1] * SIN(rpy[2]) * -1;
+
+radians[1] := _atan(y := pos_J5[2], x := pos_J5[1]);
+c1 := COS(radians[1]);
+s1 := SIN(radians[1]);
+
+pos_J2[1] := L2[1] * c1;
+pos_J2[2] := L2[1] * s1;
+pos_J2[3] := L1[3] + L2[3];
+
+FOR idx := 1 TO 3 DO
+	L25_square := L25_square + EXPT(pos_J5[idx] - pos_J2[idx], 2);
+END_FOR
+
+IF L25_square > EXPT(L25_MAX, 2) OR L25_square < EXPT(L25_MIN, 2) THEN
+	inverse := FALSE;
+	RETURN;
+END_IF
+
+phi := ACOS((pos_J5[3] - pos_J2[3]) / SQRT(L25_square));
+radians[2] := phi
+			 - ACOS((EXPT(L3[3], 2) + L25_square - EXPT(L35, 2)) / (2 * SQRT(L25_square) * L3[3]));
+radians[3] := PI/2
+             - ACOS((EXPT(L3[3], 2) + EXPT(L35, 2) - L25_square) / (2 * L3[3] * L35) )
+			 + ATAN(L4[3] / (L4[1] + L5[1]));
+
+// find R36, R06 = R03 * R36
+// known R06、 R03, R is meaning Rotation matrix
+// inv(R03) * R6 = transpose(R03) * R06
+c23 := COS(radians[2] + radians[3]);
+s23 := SIN(radians[2] + radians[3]);
+
+R06[1, 1] := COS(rpy[2]) * COS(rpy[3]);
+R06[1, 2] := SIN(rpy[1]) * SIN(rpy[2]) * COS(rpy[3]) - COS(rpy[1]) * SIN(rpy[3]);
+R06[1, 3] := COS(rpy[1]) * SIN(rpy[2]) * COS(rpy[3]) + SIN(rpy[1]) * SIN(rpy[3]);
+R06[2, 1] := COS(rpy[2]) * SIN(rpy[3]);
+R06[2, 2] := SIN(rpy[1]) * SIN(rpy[2]) * SIN(rpy[3]) + COS(rpy[1]) * COS(rpy[3]);
+R06[2, 3] := COS(rpy[1]) * SIN(rpy[2]) * SIN(rpy[3]) - SIN(rpy[1]) * COS(rpy[3]);
+R06[3, 1] := SIN(rpy[2]) * -1;
+R06[3, 2] := SIN(rpy[1]) * COS(rpy[2]);
+R06[3, 3] := COS(rpy[1]) * COS(rpy[2]);
+
+R03_T[1, 1] := c1 * c23;
+R03_T[1, 2] := s1 * c23;
+R03_T[1, 3] := -s23;
+R03_T[2, 1] := -s1;
+R03_T[2, 2] := c1;
+R03_T[2, 3] := 0;
+R03_T[3, 1] := c1 * s23;
+R03_T[3, 2] := s1 * s23;
+R03_T[3, 3] := c23;
+_matrixMultipl(A := R03_T, B := R06, C => R36);
+radians[4] := _atan(R36[2, 1], -R36[3, 1]);
+radians[6] := _atan(R36[1, 2], R36[1, 3]);
+radians[5] := _atan(R36[1, 3]/COS(radians[6]), R36[1,1]);
+
+IF ABS(radians[4]) > PI/2 THEN
+	radians[4] := radians[4]  - _sign(radians[4]) * PI;
+	radians[5] := -radians[5];
+	radians[6] := radians[6] - _sign(radians[6]) * PI;
+END_IF
+
+//判斷是否在工作範圍
+IF _d2r(-180) <= radians[1] AND radians[1] <= _d2r(180) AND
+   _d2r(-57 ) <= radians[2] AND radians[2] <= _d2r(120) AND
+   _d2r(-125) <= radians[3] AND radians[3] <= _d2r(55 ) AND
+   _d2r(-180) <= radians[4] AND radians[4] <= _d2r(180) AND
+   _d2r(-124) <= radians[5] AND radians[5] <= _d2r(115) AND
+   _d2r(-180) <= radians[6] AND radians[6] <= _d2r(180) THEN
+   
+	FOR idx := 1 TO 6 DO
+		degrees[idx] := _r2d(radians[idx]);
+		radians[idx] := radians[idx];
+	END_FOR
+ELSE
+	
+	isHalt := TRUE;
+	RETURN;
+END_IF
+
+
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="Kinematics">
+      <LineId Id="39" Count="0" />
+      <LineId Id="64" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._atan">
+      <LineId Id="5" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="12" Count="2" />
+      <LineId Id="16" Count="3" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="20" Count="1" />
+      <LineId Id="24" Count="1" />
+      <LineId Id="22" Count="1" />
+      <LineId Id="11" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._d2r">
+      <LineId Id="10" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._matrixMultipl">
+      <LineId Id="5" Count="0" />
+      <LineId Id="24" Count="2" />
+      <LineId Id="23" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._r2d">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._rodLength">
+      <LineId Id="5" Count="0" />
+      <LineId Id="16" Count="2" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics._sign">
+      <LineId Id="10" Count="5" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics.Forward">
+      <LineId Id="20" Count="4" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="134" Count="1" />
+      <LineId Id="132" Count="1" />
+      <LineId Id="50" Count="17" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="71" Count="23" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="140" Count="2" />
+      <LineId Id="139" Count="0" />
+    </LineIds>
+    <LineIds Name="Kinematics.Inverse">
+      <LineId Id="163" Count="0" />
+      <LineId Id="429" Count="1" />
+      <LineId Id="165" Count="0" />
+      <LineId Id="162" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="281" Count="0" />
+      <LineId Id="286" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="64" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="173" Count="2" />
+      <LineId Id="468" Count="0" />
+      <LineId Id="178" Count="3" />
+      <LineId Id="467" Count="0" />
+      <LineId Id="183" Count="1" />
+      <LineId Id="188" Count="0" />
+      <LineId Id="185" Count="1" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="221" Count="0" />
+      <LineId Id="277" Count="1" />
+      <LineId Id="280" Count="0" />
+      <LineId Id="287" Count="0" />
+      <LineId Id="337" Count="0" />
+      <LineId Id="339" Count="7" />
+      <LineId Id="338" Count="0" />
+      <LineId Id="336" Count="0" />
+      <LineId Id="267" Count="8" />
+      <LineId Id="288" Count="0" />
+      <LineId Id="326" Count="0" />
+      <LineId Id="385" Count="0" />
+      <LineId Id="380" Count="0" />
+      <LineId Id="334" Count="0" />
+      <LineId Id="329" Count="0" />
+      <LineId Id="331" Count="0" />
+      <LineId Id="381" Count="0" />
+      <LineId Id="335" Count="0" />
+      <LineId Id="325" Count="0" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="504" Count="0" />
+      <LineId Id="520" Count="0" />
+      <LineId Id="524" Count="0" />
+      <LineId Id="526" Count="4" />
+      <LineId Id="532" Count="2" />
+      <LineId Id="523" Count="0" />
+      <LineId Id="508" Count="0" />
+      <LineId Id="531" Count="0" />
+      <LineId Id="509" Count="1" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="120" Count="0" />
+      <LineId Id="119" Count="0" />
+      <LineId Id="67" Count="1" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="50" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

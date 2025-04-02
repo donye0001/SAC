@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_6Axis_State" Id="{83525751-aa5d-47d1-a2eb-2d655cdbb293}">
+    <Declaration><![CDATA[TYPE ST_6Axis_State :
+STRUCT
+	ready : BOOL;
+	busy : BOOL;
+	error : BOOL;
+	powerOn : BOOL;
+	stop : BOOL;
+	moving : BOOL;
+END_STRUCT
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

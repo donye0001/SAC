@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="ExtLine" Id="{5c9f337a-07bb-402c-822f-794d1f4cbf9c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK ExtLine
+VAR_IN_OUT
+	Axes : ARRAY[1..6] OF AXIS_REF;
+END_VAR
+VAR_INPUT
+	Execute : BOOL;
+	coeff : ARRAY[1..6] OF ARRAY[1..6] OF LREAL;
+	runTime : LREAL;
+	updateTime : LREAL;
+END_VAR
+
+VAR_OUTPUT
+	Done : BOOL;
+END_VAR
+
+VAR
+	index : SINT;
+	pos : LREAL;
+	vel : LREAL;
+	acc : LREAL;
+	direction : DINT;
+	timer : LREAL := 0;
+	lastExecute : BOOL;
+
+	coeffCopy : ARRAY[1..6] OF ARRAY[1..6] OF LREAL;
+	runTimeCopy : LREAL;
+	updateTimeCopy : LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT Execute THEN
+	Done := FALSE;
+	lastExecute := Execute;
+	RETURN;
+END_IF
+
+IF NOT lastExecute THEN
+	coeffCopy := coeff;
+	runTimeCopy := runTime;
+	updateTimeCopy := updateTime;
+	timer := 0;
+END_IF
+lastExecute := Execute;
+
+FOR index := 1 TO 6 DO
+	pos := coeffCopy[index][1]*EXPT(timer, 5) + coeffCopy[index][2]*EXPT(timer, 4)
+		 + coeffCopy[index][3]*EXPT(timer, 3) + coeffCopy[index][4]*EXPT(timer, 2) 
+		 + coeffCopy[index][5]*timer          + coeffCopy[index][6];
+	vel := coeffCopy[index][1]*5*EXPT(timer, 4) + coeffCopy[index][2]*4*EXPT(timer, 3)
+		 + coeffCopy[index][3]*3*EXPT(timer, 2) + coeffCopy[index][4]*2*timer 
+		 + coeffCopy[index][5];
+	acc := coeffCopy[index][1]*20*EXPT(timer, 3) + coeffCopy[index][2]*12*EXPT(timer, 2)
+		 + coeffCopy[index][3]*6*timer           + coeffCopy[index][4]*2;
+	
+	IF vel=0 AND acc=0 THEN
+		direction := 0;	(* stand still *)
+	ELSIF vel >= 0 THEN
+		direction := 1;	(* positive motion *)
+	ELSE
+		direction := -1;  (* negative motion *)
+	END_IF
+	
+	IF timer >= runTimeCopy THEN
+		vel := 0;
+		acc := 0;
+		direction := 0;
+		done := TRUE;
+	END_IF
+	
+	MC_ExtSetPointGenFeed(
+		Position := pos,
+		Velocity := vel,
+		Acceleration := acc,
+		Direction := direction,
+		Axis := Axes[index]);
+END_FOR
+
+IF NOT Done THEN
+	timer := timer + updateTimeCopy;
+END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="ExtLine">
+      <LineId Id="121" Count="0" />
+      <LineId Id="44" Count="47" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="120" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

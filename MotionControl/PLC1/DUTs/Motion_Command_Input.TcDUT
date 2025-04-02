@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="Motion_Command_Input" Id="{ae65b2bf-0915-4abd-917f-de52d3bce096}">
+    <Declaration><![CDATA[TYPE Motion_Command_Input :
+STRUCT
+	mode : E_6Axis_Motion;
+	precise : BOOL; // 專門給Homing指令使用
+	StartPOS : ARRAY [1..6] OF LREAL;
+	FinalPOS : ARRAY [1..6] OF LREAL;
+	
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

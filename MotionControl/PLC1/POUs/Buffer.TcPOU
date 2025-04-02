@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="Buffer" Id="{148c26d4-7097-4286-a9e7-ba4d69266572}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK Buffer
+
+VAR CONSTANT
+	AxesMaxAmount : USINT := 6;
+	PosMaxAmount : USINT := 10;
+END_VAR
+
+VAR
+	bInit : BOOL := TRUE;
+	POS_STORAGE : ARRAY [1..PosMaxAmount] OF ARRAY [1..AxesMaxAmount] OF LREAL;
+	InCommand : Motion_Command_Input;
+END_VAR
+ ]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+
+InCommand.StartPos := InCommand.StartPOS;
+]]></ST>
+    </Implementation>
+    <LineIds Name="Buffer">
+      <LineId Id="31" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="24" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
